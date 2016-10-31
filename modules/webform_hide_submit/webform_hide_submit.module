@@ -1,0 +1,111 @@
+<?php
+
+/**
+ * @file
+ * Webform Hide Submit module hides submit button until
+ * all required fields are not filled.
+ */
+
+/**
+ * Implements hook_form_alter().
+ */
+function webform_hide_submit_form_webform_client_form_alter(&$form, $form_state, $form_id) {
+  // Webform pre-render function that removes id of the element,
+  // which is required for FAPI #states.
+  $webform_prerender = 'webform_pre_render_remove_id';
+
+  $elements = element_children($form['submitted']);
+  $behaviour_states = array();
+  // Walk through all required fields and prepare #states array.
+  foreach ($elements as $element_name) {
+    if (!empty($form['submitted'][$element_name]['#required'])) {
+      // Prepare a set of sub-states for checkboxes.
+      if ($form['submitted'][$element_name]['#type'] == 'checkboxes') {
+        $sub_states = array();
+        foreach ($form['submitted'][$element_name]['#options'] as $option_machine_name => $option) {
+          $key = format_string(":input[name='submitted[@element_name][@option]']", array(
+            '@element_name' => $element_name,
+            '@option' => $option_machine_name,
+          ));
+          // Sub-set uses OR operand, i.e. at least one option should be
+          // selected to make checkboxes element processed.
+          $sub_states[] = array(
+            $key => array('checked' => TRUE),
+          );
+        }
+        $behaviour_states[] = $sub_states;
+      }
+      else {
+        $key = format_string(":input[name='submitted[@element_name]']", array('@element_name' => $element_name));
+        $behaviour_states[$key] = array('filled' => TRUE);
+      }
+    }
+  }
+
+  foreach (array('next', 'submit') as $button) {
+    if (isset($form['actions'][$button])) {
+      // Check if there is a need to create #states array for the button.
+      $behaviour = webform_hide_submit_get_button_behaviour($form['#node']);
+      if (empty($behaviour)) {
+        return;
+      }
+
+      // Remove pre-render function that removes id of the element.
+      $webform_prerender_key = array_search($webform_prerender, $form['actions'][$button]['#pre_render']);
+      if ($webform_prerender_key !== FALSE) {
+        unset($form['actions'][$button]['#pre_render'][$webform_prerender_key]);
+      }
+
+      // Initialize #states with specific behaviour for the button.
+      if (!isset($form['actions'][$button]['#states'][$behaviour])) {
+        $form['actions'][$button]['#states'][$behaviour] = array();
+      }
+
+      $form['actions'][$button]['#states'][$behaviour] += $behaviour_states;
+    }
+  }
+}
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter().
+ * 
+ * As default field value does not apply to
+ * existing nodes - this function directly sets it.
+ */
+function webform_hide_submit_form_node_form_alter(&$form, $form_state, $form_id) {
+  if (!empty($form['field_submit_button_behaviour'])) {
+    $lang = $form['field_submit_button_behaviour']['#language'];
+    if (empty($form['field_submit_button_behaviour'][$lang]['#default_value'])) {
+      $form['field_submit_button_behaviour'][$lang]['#default_value'] = 'enabled';
+    }
+  }
+}
+
+/**
+ * Returns submit button behaviour based on user settings at the node edit page.
+ */
+function webform_hide_submit_get_button_behaviour($node) {
+  $behaviour_field_name = 'field_submit_button_behaviour';
+  $behaviour = field_get_items('node', $node, $behaviour_field_name, $node->language);
+  if (empty($behaviour)) {
+    return FALSE;
+  }
+  switch ($behaviour[0]['value']) {
+    case 'enabled':
+      $result = FALSE;
+      break;
+
+    case 'disabled':
+      $result = 'enabled';
+      break;
+
+    case 'hidden':
+      $result = 'visible';
+      break;
+
+    default:
+      $result = FALSE;
+      break;
+  }
+  return $result;
+}

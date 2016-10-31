@@ -1,0 +1,179 @@
+<?php
+
+/**
+ * @file
+ * Webform Hide Submit module install/uninstall hooks.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function webform_hide_submit_install() {
+  foreach (node_type_get_names() as $bundle => $name) {
+    if (variable_get('webform_node_' . $bundle, FALSE)) {
+      webform_hide_submit_install_fields($bundle);
+      webform_hide_submit_install_fieldset($bundle);
+    }
+  }
+}
+
+/**
+ * Creates "Submit button behaviour" field for the $bundle content type.
+ */
+function webform_hide_submit_install_fields($bundle) {
+  $t = get_t();
+  $field_exists = field_info_field('field_submit_button_behaviour');
+  if (!$field_exists) {
+    // Field text JavaScript Field Library.
+    $field_submit_behaviour = array(
+      'field_name' => 'field_submit_button_behaviour',
+      'type' => 'list_text',
+      'cardinality' => 1,
+      'locked' => FALSE,
+      'indexes' => array('value' => array('value')),
+      'settings' => array(
+        'allowed_values' => array(
+          'enabled' => $t('Display button'),
+          'disabled' => $t('Disable button'),
+          'hidden' => $t('Hide button'),
+        ),
+      ),
+      'storage' => array(
+        'type' => 'field_sql_storage',
+        'settings' => array(),
+      ),
+    );
+    field_create_field($field_submit_behaviour);
+  }
+
+  $instance_submit_behaviour = array(
+    'field_name' => 'field_submit_button_behaviour',
+    'entity_type' => 'node',
+    'label' => 'Submit button behaviour',
+    'bundle' => $bundle,
+    'description' => $t('Select behaviour for Submit button. It can be:<br />
+Display &mdash; default behaviour, button will be displayed as usual<br />
+Disable &mdash; button will be displayed but disabled until all required fields are filled<br />
+Hide &mdash; button will be hidden until all required fields are filled'),
+    'default_value' => array(
+      array(
+        'value' => 'enabled',
+      ),
+    ),
+    'required' => TRUE,
+    'settings' => array(
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'type' => 'options_buttons',
+      'module' => 'options',
+      'active' => 1,
+      'settings' => array(),
+    ),
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'type' => 'hidden',
+        'settings' => array(),
+        'weight' => 5,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'type' => 'hidden',
+        'settings' => array(),
+        'weight' => 0,
+      ),
+    ),
+  );
+  field_create_instance($instance_submit_behaviour);
+}
+
+/**
+ * Creates "Submit button behaviour" fieldset for the $bundle content type.
+ */
+function webform_hide_submit_install_fieldset($bundle) {
+  $data = array(
+    'label' => 'Submit button behaviour for required components',
+    'weight' => '9',
+    'children' => array(
+      0 => 'field_submit_button_behaviour',
+    ),
+    'format_type' => 'fieldset',
+    'format_settings' => array(
+      'label' => 'Submit button behaviour for required components',
+      'instance_settings' => array(
+        'required_fields' => 1,
+        'classes' => 'group-components-behaviour field-group-fieldset',
+        'description' => '',
+      ),
+      'formatter' => 'collapsible',
+    ),
+  );
+
+  field_group_info_groups('node', $bundle, 'default', TRUE);
+
+  $group_name = 'group_components_behaviour';
+  $mode = 'form';
+  $identifier = $group_name . '|node|' . $bundle . '|' . $mode;
+
+  $field_group = new stdClass();
+  $field_group->disabled = FALSE;
+  $field_group->api_version = 1;
+  $field_group->identifier = $identifier;
+  $field_group->group_name = $group_name;
+  $field_group->entity_type = 'node';
+  $field_group->bundle = $bundle;
+  $field_group->mode = $mode;
+  $field_group->parent_name = '';
+  $field_group->children = $data['children'];
+  $field_group->data = $data;
+  drupal_write_record('field_group', $field_group);
+  ctools_export_crud_enable('field_group', $field_group->identifier);
+
+  field_group_info_groups('node', $bundle, 'default', TRUE);
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function webform_hide_submit_uninstall() {
+  webform_hide_submit_uninstall_fields();
+
+  foreach (node_type_get_names() as $bundle => $name) {
+    if (variable_get('webform_node_' . $bundle, FALSE)) {
+      webform_hide_submit_uninstall_fieldset($bundle);
+    }
+  }
+}
+
+/**
+ * Removes field "Submit button behaviour".
+ */
+function webform_hide_submit_uninstall_fields() {
+  $field_name = 'field_submit_button_behaviour';
+  $field = field_info_field($field_name);
+  if (isset($field['bundles'])) {
+    foreach ($field['bundles'] as $entity_type => $bundles) {
+      foreach ($bundles as $bundle) {
+        $instance = field_info_instance($entity_type, $field_name, $bundle);
+        field_delete_instance($instance, TRUE);
+      }
+    }
+  }
+}
+
+/**
+ * Removes fieldset "Submit button behaviour".
+ */
+function webform_hide_submit_uninstall_fieldset($bundle) {
+  $group_name = 'group_components_behaviour';
+  $mode = 'form';
+  $identifier = $group_name . '|node|' . $bundle . '|' . $mode;
+
+  $group = new stdClass();
+  $group->identifier = $identifier;
+  $group->mode = $mode;
+
+  ctools_include('export');
+  field_group_group_export_delete($group, FALSE);
+}
