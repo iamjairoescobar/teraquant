@@ -73,12 +73,15 @@
   				Upload files:</h4>
   			<ol>
   				<li>
-  					Upload from <code>thm_teraquant.zip</code> to your site folder in <code>/sites/all/themes</code></li>
+  					Upload from <b>themes</b> to your site folder in <b>/sites/all/themes</b></li>
   				<li>
   					Upload from <b>modules</b> all required modules to your site in <b>/sites/all/modules</b> folder.</li>
           <li>
             Upload from <b>libraries</b> all libraries to your site in <b>/sites/all/libraries</b> folder.</li>
+          <li>
+            Upload from <b>files</b> all in <b>/sites/default/files</b> folder.</li>
   			</ol>
+        <p>Go to <b>Configuration/Media/File system</b> and rewrite your Public file system path to <code>sites/default/files</code></p>
         <p>Go to the Modules page <b>admin/modules</b> and enable all required modules described above.</p>
         <p>Please make sure what you are have enabled next modules before enabling the theme:
         </p><ul>
